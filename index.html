@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>LeapMotion + D3</title>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/d3/3.4.11/d3.js"></script>
+    <script src="//js.leapmotion.com/leap-0.6.0-beta3.js"></script>
+
+</head>
+
+<body>
+
+    <script type="text/javascript">
+    function overlap(x, y, rect) {
+        return (x > rect.x &&
+            x < rect.x + rect.width &&
+            y > rect.y &&
+            y < rect.y + rect.height);
+    }
+
+
+    var windowWidth = window.innerWidth;
+    windowHeight = window.innerHeight;
+
+    var svg = d3.select("body")
+        .append("svg")
+        .attr("width", windowWidth)
+        .attr("height", windowHeight);
+
+    var data = ["image1", "image2", "image3", "image4", "image5"];
+
+
+    var picHeight = windowHeight / data.length;
+    var picWidth = windowWidth / 10;
+
+
+    var imgs = svg.selectAll("image").data(data)
+        .enter()
+        .append("image")
+        .attr({
+            id: function(d, i) {
+                return data[i];
+            },
+            "xlink:href": function(d, i) {
+                return "images/" + data[i] + ".jpg";
+            },
+            x: 0,
+            y: function(d, i) {
+                return i * picHeight;
+            },
+            width: picWidth,
+            height: picHeight,
+            preserveAspectRatio: "xMinYMid"
+        });
+
+
+    function getXPos(distance) {
+        return 600 + ((distance / 500) * windowWidth);
+    }
+
+    function getYPos(distance) {
+        return windowHeight - ((distance / 500) * windowHeight);
+    }
+
+    function getZPos(distance) {
+        return 150 - ((distance / 160) * 150);
+    }
+
+    function draw(x, y, z) {
+        var color = "A9AAC4";
+        if (selectMode) color = "1E25FA";
+        svg.append("svg:circle")
+            .attr("cx", x)
+            .attr("cy", y)
+            .attr("r", 15)
+            .attr("opacity", "0.5")
+            .style("fill", color)
+            .transition(1)
+            .remove();
+    }
+    var posX, posY, posZ;
+    var selectedImage;
+    var selectMode = false;
+
+    Leap.loop(function(frame) {
+
+        var hands = frame.hands;
+        //console.log(hand);
+        if (hands.length > 0) {
+            for (var h = 0; h < hands.length; h++) {
+                var fingers = hands[h].fingers;
+                var closestZ = 0;
+
+                for (var i = 0; i < fingers.length; i++) {
+                    pointer = fingers[i];
+                    if (pointer.tipPosition[2] < closestZ) {
+                        posX = 0 + getXPos(pointer.tipPosition[0]);
+                        posY = 0 + getYPos(pointer.tipPosition[1]);
+                        posZ = 0 + getZPos(pointer.tipPosition[2]);
+                    }
+                }
+                selectMode = posZ > 250;
+                if (!selectMode && selectedImage != null) {
+                    selectedImage.transition().duration(1)
+                        .attr("opacity", 1);
+                    selectedImage = null;
+                }
+                draw(posX, posY, posZ);
+                imgs.each(function() {
+                    var image = d3.select(this);
+                    if (overlap(posX, posY, this.getBBox()) && selectMode) {
+                        selectedImage = image;
+                    }
+                });
+            }
+        }
+
+        if (selectedImage != null) {
+            selectedImage.transition().duration(1)
+                .attr("x", posX - (selectedImage.attr("width") / 2))
+                .attr("y", posY - (selectedImage.attr("height") / 2))
+                .attr("opacity", 0.5);
+        }
+
+    });
+    </script>
+
+</body>
+
+</html>
